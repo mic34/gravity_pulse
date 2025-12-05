@@ -1,6 +1,16 @@
+// Global Error Handler
+window.onerror = function (message, source, lineno, colno, error) {
+    console.error("Game Error:", message, "at", source, ":", lineno, ":", colno);
+    console.error("Stack:", error ? error.stack : "No stack trace");
+    // Optional: Display error to user if critical
+    return false; // Let default handler run too
+};
+
 // Game constants
-const CANVAS_WIDTH = 800;
-const CANVAS_HEIGHT = 600;
+// Game constants
+// CANVAS_WIDTH and CANVAS_HEIGHT are now dynamic
+let CANVAS_WIDTH = window.innerWidth;
+let CANVAS_HEIGHT = window.innerHeight;
 const PLAYER_RADIUS = 15;
 const ENEMY_RADIUS = 10;
 const REWARD_RADIUS = 8;
@@ -9,11 +19,13 @@ const CENTER_ATTRACTION = 0.05;
 const DASH_SPEED = 15;
 const DASH_DURATION = 300; // ms
 const DASH_COOLDOWN = 1000; // ms
+const TARGET_FPS = 60;
+const TARGET_FRAME_TIME = 1000 / TARGET_FPS;
 
 // Sound Manager using Web Audio API
 const SoundManager = {
     ctx: null,
-    init: function() {
+    init: function () {
         try {
             window.AudioContext = window.AudioContext || window.webkitAudioContext;
             this.ctx = new AudioContext();
@@ -21,7 +33,7 @@ const SoundManager = {
             console.warn('Web Audio API not supported');
         }
     },
-    playTone: function(freq, type, duration, vol = 0.1) {
+    playTone: function (freq, type, duration, vol = 0.1) {
         if (!this.ctx) return;
         const osc = this.ctx.createOscillator();
         const gain = this.ctx.createGain();
@@ -34,7 +46,7 @@ const SoundManager = {
         osc.start();
         osc.stop(this.ctx.currentTime + duration);
     },
-    playDash: function() {
+    playDash: function () {
         if (!this.ctx) return;
         const osc = this.ctx.createOscillator();
         const gain = this.ctx.createGain();
@@ -48,11 +60,11 @@ const SoundManager = {
         osc.start();
         osc.stop(this.ctx.currentTime + 0.3);
     },
-    playCollect: function() {
+    playCollect: function () {
         this.playTone(880, 'sine', 0.1, 0.1);
         setTimeout(() => this.playTone(1760, 'sine', 0.2, 0.1), 50);
     },
-    playHit: function() {
+    playHit: function () {
         if (!this.ctx) return;
         const osc = this.ctx.createOscillator();
         const gain = this.ctx.createGain();
@@ -66,7 +78,7 @@ const SoundManager = {
         osc.start();
         osc.stop(this.ctx.currentTime + 0.2);
     },
-    playGameOver: function() {
+    playGameOver: function () {
         if (!this.ctx) return;
         const osc = this.ctx.createOscillator();
         const gain = this.ctx.createGain();
@@ -84,8 +96,11 @@ const SoundManager = {
 
 // Game state
 let canvas, ctx;
-let player, enemies, rewards, particles;
-let score, multiplier, health, lastTime, gameTime, lastEnemySpawn, dashEndTime, lastDashTime, gameLoopId;
+let player = { x: 0, y: 0, radius: 0, isDashing: false }; // Default safe player
+let enemies = [];
+let rewards = [];
+let particles = [];
+let score = 0, multiplier = 1, health = 100, lastTime, gameTime = 0, lastEnemySpawn = 0, dashEndTime = 0, lastDashTime = 0, gameLoopId;
 let keys = {};
 let centerX, centerY;
 let arenaRadius;
@@ -102,14 +117,14 @@ function init() {
     canvas = document.getElementById('game-canvas');
     ctx = canvas.getContext('2d');
 
-    centerX = CANVAS_WIDTH / 2;
-    centerY = CANVAS_HEIGHT / 2;
-    arenaRadius = Math.min(centerX, centerY) - ARENA_PADDING;
+    // Handle initial size and resize events
+    handleResize();
+    window.addEventListener('resize', handleResize);
 
     // Event listeners
     window.addEventListener('keydown', handleKeyDown);
     window.addEventListener('keyup', e => keys[e.key] = false);
-    
+
     document.getElementById('start-btn').addEventListener('click', startGame);
     document.getElementById('resume-btn').addEventListener('click', togglePause);
     document.getElementById('restart-btn').addEventListener('click', resetGame);
@@ -118,9 +133,26 @@ function init() {
     renderBackground();
 }
 
+function handleResize() {
+    CANVAS_WIDTH = window.innerWidth;
+    CANVAS_HEIGHT = window.innerHeight;
+
+    canvas.width = CANVAS_WIDTH;
+    canvas.height = CANVAS_HEIGHT;
+
+    centerX = CANVAS_WIDTH / 2;
+    centerY = CANVAS_HEIGHT / 2;
+    arenaRadius = Math.min(centerX, centerY) - ARENA_PADDING;
+
+    // Force a re-render if not playing loop
+    if (gameState !== 'playing') {
+        render();
+    }
+}
+
 function handleKeyDown(e) {
     keys[e.key] = true;
-    
+
     // Pause toggle
     if (e.key === 'Escape') {
         if (gameState === 'playing' || gameState === 'paused') {
@@ -205,7 +237,7 @@ function resetGame() {
 // Main game loop
 function gameLoop(timestamp) {
     if (gameState !== 'playing') return;
-    
+
     if (!lastTime) lastTime = timestamp;
 
     const deltaTime = timestamp - lastTime;
@@ -221,20 +253,23 @@ function gameLoop(timestamp) {
 
 // Update game state
 function update(deltaTime) {
+    // Calculate time scale (1.0 at 60fps)
+    const timeScale = deltaTime / TARGET_FRAME_TIME;
+
     // Update player
-    updatePlayer(deltaTime);
+    updatePlayer(timeScale);
 
     // Update enemies
-    updateEnemies(deltaTime);
+    updateEnemies(timeScale);
 
     // Update rewards
-    updateRewards();
+    updateRewards(deltaTime); // Rewards use raw time for TTL
 
     // Spawn enemies (Wave System)
     manageWaves(deltaTime);
 
     // Update particles
-    updateParticles(deltaTime);
+    updateParticles(timeScale);
 
     // Check collisions
     checkCollisions();
@@ -249,7 +284,7 @@ function update(deltaTime) {
 }
 
 // Update player position and state
-function updatePlayer(deltaTime) {
+function updatePlayer(timeScale) {
     // Handle movement (WASD + ZQSD + Arrows)
     const left = keys['ArrowLeft'] || keys['a'] || keys['q'];
     const right = keys['ArrowRight'] || keys['d'];
@@ -302,9 +337,9 @@ function updatePlayer(deltaTime) {
         player.isDashing = false;
     }
 
-    // Update position
-    player.x += player.dx;
-    player.y += player.dy;
+    // Update position with timeScale
+    player.x += player.dx * timeScale;
+    player.y += player.dy * timeScale;
 
     // Keep player in bounds
     const distFromCenter = Math.sqrt((player.x - centerX) ** 2 + (player.y - centerY) ** 2);
@@ -368,7 +403,7 @@ function startNextWave() {
 }
 
 // Update all enemies
-function updateEnemies(deltaTime) {
+function updateEnemies(timeScale) {
     for (let i = enemies.length - 1; i >= 0; i--) {
         const enemy = enemies[i];
 
@@ -378,8 +413,8 @@ function updateEnemies(deltaTime) {
         const dist = Math.sqrt(dx * dx + dy * dy);
 
         if (dist > 0) {
-            enemy.x += (dx / dist) * enemy.speed;
-            enemy.y += (dy / dist) * enemy.speed;
+            enemy.x += (dx / dist) * enemy.speed * timeScale;
+            enemy.y += (dy / dist) * enemy.speed * timeScale;
         }
 
         // Remove if too far outside arena
@@ -391,7 +426,7 @@ function updateEnemies(deltaTime) {
 }
 
 // Update all rewards
-function updateRewards() {
+function updateRewards(deltaTime) {
     // Randomly spawn rewards near enemies
     if (Math.random() < 0.02 && enemies.length > 0) {
         const enemy = enemies[Math.floor(Math.random() * enemies.length)];
@@ -411,7 +446,7 @@ function updateRewards() {
         const reward = rewards[i];
 
         // Fade out over time
-        reward.ttl = (reward.ttl || 3000) - 16; // 3 second lifetime
+        reward.ttl = (reward.ttl || 3000) - deltaTime; // Use deltaTime for consistent fading
 
         if (reward.ttl <= 0) {
             rewards.splice(i, 1);
@@ -420,12 +455,12 @@ function updateRewards() {
 }
 
 // Update particles
-function updateParticles(deltaTime) {
+function updateParticles(timeScale) {
     for (let i = particles.length - 1; i >= 0; i--) {
         const p = particles[i];
-        p.x += p.dx;
-        p.y += p.dy;
-        p.alpha -= 0.02;
+        p.x += p.dx * timeScale;
+        p.y += p.dy * timeScale;
+        p.alpha -= 0.02 * timeScale;
 
         if (p.alpha <= 0) {
             particles.splice(i, 1);
@@ -520,14 +555,16 @@ function endGame() {
     gameState = 'gameover';
     SoundManager.playGameOver();
     document.getElementById('final-score').textContent = Math.floor(score);
-    document.getElementById('game-over').classList.add('active');
+    const gameOverScreen = document.getElementById('game-over');
+    gameOverScreen.style.display = ''; // Clear inline display: none
+    gameOverScreen.classList.add('active');
 }
 
 // Render the game
 function render() {
     // Clear canvas
     ctx.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
-    
+
     // Draw background elements
     renderBackground();
 
@@ -643,18 +680,18 @@ function render() {
     // Draw player direction indicator
     ctx.beginPath();
     ctx.moveTo(player.x, player.y);
-    
+
     // Calculate direction based on keys
     const left = keys['ArrowLeft'] || keys['a'] || keys['q'];
     const right = keys['ArrowRight'] || keys['d'];
     const up = keys['ArrowUp'] || keys['w'] || keys['z'];
     const down = keys['ArrowDown'] || keys['s'];
-    
+
     const angle = Math.atan2(
         (down ? 1 : 0) - (up ? 1 : 0),
         (right ? 1 : 0) - (left ? 1 : 0)
     );
-    
+
     ctx.lineTo(
         player.x + Math.cos(angle) * player.radius * 1.5,
         player.y + Math.sin(angle) * player.radius * 1.5
