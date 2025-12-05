@@ -10,13 +10,92 @@ const DASH_SPEED = 15;
 const DASH_DURATION = 300; // ms
 const DASH_COOLDOWN = 1000; // ms
 
+// Sound Manager using Web Audio API
+const SoundManager = {
+    ctx: null,
+    init: function() {
+        try {
+            window.AudioContext = window.AudioContext || window.webkitAudioContext;
+            this.ctx = new AudioContext();
+        } catch (e) {
+            console.warn('Web Audio API not supported');
+        }
+    },
+    playTone: function(freq, type, duration, vol = 0.1) {
+        if (!this.ctx) return;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = type;
+        osc.frequency.setValueAtTime(freq, this.ctx.currentTime);
+        gain.gain.setValueAtTime(vol, this.ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + duration);
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start();
+        osc.stop(this.ctx.currentTime + duration);
+    },
+    playDash: function() {
+        if (!this.ctx) return;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(150, this.ctx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(50, this.ctx.currentTime + 0.3);
+        gain.gain.setValueAtTime(0.1, this.ctx.currentTime);
+        gain.gain.linearRampToValueAtTime(0, this.ctx.currentTime + 0.3);
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start();
+        osc.stop(this.ctx.currentTime + 0.3);
+    },
+    playCollect: function() {
+        this.playTone(880, 'sine', 0.1, 0.1);
+        setTimeout(() => this.playTone(1760, 'sine', 0.2, 0.1), 50);
+    },
+    playHit: function() {
+        if (!this.ctx) return;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'square';
+        osc.frequency.setValueAtTime(100, this.ctx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(20, this.ctx.currentTime + 0.2);
+        gain.gain.setValueAtTime(0.2, this.ctx.currentTime);
+        gain.gain.linearRampToValueAtTime(0, this.ctx.currentTime + 0.2);
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start();
+        osc.stop(this.ctx.currentTime + 0.2);
+    },
+    playGameOver: function() {
+        if (!this.ctx) return;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(200, this.ctx.currentTime);
+        osc.frequency.linearRampToValueAtTime(50, this.ctx.currentTime + 1.5);
+        gain.gain.setValueAtTime(0.2, this.ctx.currentTime);
+        gain.gain.linearRampToValueAtTime(0, this.ctx.currentTime + 1.5);
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start();
+        osc.stop(this.ctx.currentTime + 1.5);
+    }
+};
+
 // Game state
 let canvas, ctx;
 let player, enemies, rewards, particles;
-let score, multiplier, health, gameOver, lastTime, gameTime, lastEnemySpawn, dashEndTime, lastDashTime, gameLoopId;
+let score, multiplier, health, lastTime, gameTime, lastEnemySpawn, dashEndTime, lastDashTime, gameLoopId;
 let keys = {};
 let centerX, centerY;
 let arenaRadius;
+
+// Game Flow State
+let gameState = 'start'; // start, playing, paused, gameover
+let currentWave = 1;
+let waveTimer = 0;
+let enemiesToSpawn = 0;
+let waveInProgress = false;
 
 // Initialize game
 function init() {
@@ -27,16 +106,48 @@ function init() {
     centerY = CANVAS_HEIGHT / 2;
     arenaRadius = Math.min(centerX, centerY) - ARENA_PADDING;
 
-    resetGame();
-
     // Event listeners
-    window.addEventListener('keydown', e => keys[e.key] = true);
+    window.addEventListener('keydown', handleKeyDown);
     window.addEventListener('keyup', e => keys[e.key] = false);
+    
+    document.getElementById('start-btn').addEventListener('click', startGame);
+    document.getElementById('resume-btn').addEventListener('click', togglePause);
     document.getElementById('restart-btn').addEventListener('click', resetGame);
 
-    // Start game loop
-    lastTime = performance.now();
-    gameLoop();
+    // Initial render
+    renderBackground();
+}
+
+function handleKeyDown(e) {
+    keys[e.key] = true;
+    
+    // Pause toggle
+    if (e.key === 'Escape') {
+        if (gameState === 'playing' || gameState === 'paused') {
+            togglePause();
+        }
+    }
+}
+
+function startGame() {
+    SoundManager.init();
+    gameState = 'playing';
+    document.getElementById('start-screen').classList.remove('active');
+    document.getElementById('start-screen').style.display = 'none'; // Force hide
+    resetGame();
+}
+
+function togglePause() {
+    if (gameState === 'playing') {
+        gameState = 'paused';
+        document.getElementById('pause-screen').classList.add('active');
+        cancelAnimationFrame(gameLoopId);
+    } else if (gameState === 'paused') {
+        gameState = 'playing';
+        document.getElementById('pause-screen').classList.remove('active');
+        lastTime = performance.now();
+        gameLoopId = requestAnimationFrame(gameLoop);
+    }
 }
 
 // Reset game state
@@ -45,6 +156,10 @@ function resetGame() {
     if (gameLoopId) {
         cancelAnimationFrame(gameLoopId);
     }
+
+    gameState = 'playing';
+    document.getElementById('game-over').classList.remove('active');
+    document.getElementById('game-over').style.display = 'none'; // Force hide
 
     // Reset player
     player = {
@@ -64,7 +179,6 @@ function resetGame() {
     score = 0;
     multiplier = 1;
     health = 100;
-    gameOver = false;
     gameTime = 0;
     lastTime = performance.now();
     lastEnemySpawn = 0;
@@ -83,7 +197,6 @@ function resetGame() {
 
     // Reset UI
     updateUI();
-    document.getElementById('game-over').style.display = 'none';
 
     // Start a new game loop
     gameLoopId = requestAnimationFrame(gameLoop);
@@ -91,8 +204,9 @@ function resetGame() {
 
 // Main game loop
 function gameLoop(timestamp) {
+    if (gameState !== 'playing') return;
+    
     if (!lastTime) lastTime = timestamp;
-    if (gameOver) return;
 
     const deltaTime = timestamp - lastTime;
     lastTime = timestamp;
@@ -102,7 +216,7 @@ function gameLoop(timestamp) {
     update(deltaTime);
     render();
 
-    requestAnimationFrame(gameLoop);
+    gameLoopId = requestAnimationFrame(gameLoop);
 }
 
 // Update game state
@@ -136,9 +250,14 @@ function update(deltaTime) {
 
 // Update player position and state
 function updatePlayer(deltaTime) {
-    // Handle movement
-    const moveX = (keys['ArrowRight'] || keys['d'] ? 1 : 0) - (keys['ArrowLeft'] || keys['a'] ? 1 : 0);
-    const moveY = (keys['ArrowDown'] || keys['s'] ? 1 : 0) - (keys['ArrowUp'] || keys['w'] ? 1 : 0);
+    // Handle movement (WASD + ZQSD + Arrows)
+    const left = keys['ArrowLeft'] || keys['a'] || keys['q'];
+    const right = keys['ArrowRight'] || keys['d'];
+    const up = keys['ArrowUp'] || keys['w'] || keys['z'];
+    const down = keys['ArrowDown'] || keys['s'];
+
+    const moveX = (right ? 1 : 0) - (left ? 1 : 0);
+    const moveY = (down ? 1 : 0) - (up ? 1 : 0);
 
     // Normalize diagonal movement
     const len = Math.sqrt(moveX * moveX + moveY * moveY);
@@ -168,10 +287,11 @@ function updatePlayer(deltaTime) {
     const isDashing = now < dashEndTime;
     const canDash = now - lastDashTime > DASH_COOLDOWN;
 
-    if ((keys[' '] || keys[' ']) && canDash && !isDashing) {
+    if (keys[' '] && canDash && !isDashing) {
         dashEndTime = now + DASH_DURATION;
         lastDashTime = now;
         player.isDashing = true;
+        SoundManager.playDash();
 
         // Dash toward center
         if (distToCenter > 0) {
@@ -194,12 +314,6 @@ function updatePlayer(deltaTime) {
         player.y = centerY + Math.sin(angle) * (arenaRadius - player.radius);
     }
 }
-
-// Wave system state
-let currentWave = 1;
-let waveTimer = 0;
-let enemiesToSpawn = 0;
-let waveInProgress = false;
 
 // Spawn a new enemy
 function spawnEnemy() {
@@ -334,11 +448,13 @@ function checkCollisions() {
                 createParticles(enemy.x, enemy.y, 'red');
                 enemies.splice(i, 1);
                 score += 50 * multiplier;
+                SoundManager.playHit(); // Using hit sound for enemy death too for now
                 i--;
             } else {
                 // Take damage
                 health -= 5;
                 createParticles(player.x, player.y, 'white');
+                SoundManager.playHit();
 
                 // Knockback
                 const knockback = 10;
@@ -363,6 +479,7 @@ function checkCollisions() {
             score += reward.value;
             multiplier += 0.1;
             createParticles(reward.x, reward.y, 'gold');
+            SoundManager.playCollect();
             rewards.splice(i, 1);
         }
     }
@@ -400,37 +517,19 @@ function updateUI() {
 
 // End the game
 function endGame() {
-    gameOver = true;
+    gameState = 'gameover';
+    SoundManager.playGameOver();
     document.getElementById('final-score').textContent = Math.floor(score);
-    document.getElementById('game-over').style.display = 'block';
+    document.getElementById('game-over').classList.add('active');
 }
 
 // Render the game
 function render() {
     // Clear canvas
     ctx.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
-
-    // Draw background grid (Retro/Neon style)
-    ctx.strokeStyle = 'rgba(0, 243, 255, 0.05)';
-    ctx.lineWidth = 1;
-    const gridSize = 50;
-    const offset = (gameTime / 50) % gridSize;
-
-    // Vertical lines
-    for (let x = offset; x < CANVAS_WIDTH; x += gridSize) {
-        ctx.beginPath();
-        ctx.moveTo(x, 0);
-        ctx.lineTo(x, CANVAS_HEIGHT);
-        ctx.stroke();
-    }
-
-    // Horizontal lines
-    for (let y = offset; y < CANVAS_HEIGHT; y += gridSize) {
-        ctx.beginPath();
-        ctx.moveTo(0, y);
-        ctx.lineTo(CANVAS_WIDTH, y);
-        ctx.stroke();
-    }
+    
+    // Draw background elements
+    renderBackground();
 
     // Draw arena boundary with glow
     ctx.beginPath();
@@ -544,10 +643,18 @@ function render() {
     // Draw player direction indicator
     ctx.beginPath();
     ctx.moveTo(player.x, player.y);
+    
+    // Calculate direction based on keys
+    const left = keys['ArrowLeft'] || keys['a'] || keys['q'];
+    const right = keys['ArrowRight'] || keys['d'];
+    const up = keys['ArrowUp'] || keys['w'] || keys['z'];
+    const down = keys['ArrowDown'] || keys['s'];
+    
     const angle = Math.atan2(
-        (keys['ArrowDown'] || keys['s'] ? 1 : 0) - (keys['ArrowUp'] || keys['w'] ? 1 : 0),
-        (keys['ArrowRight'] || keys['d'] ? 1 : 0) - (keys['ArrowLeft'] || keys['a'] ? 1 : 0)
+        (down ? 1 : 0) - (up ? 1 : 0),
+        (right ? 1 : 0) - (left ? 1 : 0)
     );
+    
     ctx.lineTo(
         player.x + Math.cos(angle) * player.radius * 1.5,
         player.y + Math.sin(angle) * player.radius * 1.5
@@ -555,6 +662,30 @@ function render() {
     ctx.strokeStyle = 'rgba(255, 255, 255, 0.8)';
     ctx.lineWidth = 2;
     ctx.stroke();
+}
+
+function renderBackground() {
+    // Draw background grid (Retro/Neon style)
+    ctx.strokeStyle = 'rgba(0, 243, 255, 0.05)';
+    ctx.lineWidth = 1;
+    const gridSize = 50;
+    const offset = (gameTime / 50) % gridSize;
+
+    // Vertical lines
+    for (let x = offset; x < CANVAS_WIDTH; x += gridSize) {
+        ctx.beginPath();
+        ctx.moveTo(x, 0);
+        ctx.lineTo(x, CANVAS_HEIGHT);
+        ctx.stroke();
+    }
+
+    // Horizontal lines
+    for (let y = offset; y < CANVAS_HEIGHT; y += gridSize) {
+        ctx.beginPath();
+        ctx.moveTo(0, y);
+        ctx.lineTo(CANVAS_WIDTH, y);
+        ctx.stroke();
+    }
 }
 
 // Start the game when the page loads

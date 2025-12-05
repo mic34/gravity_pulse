@@ -24,10 +24,30 @@
                 <span id="health">100%</span>
             </div>
         </div>
-        <div id="game-over" class="pulse">
-            <h2>GAME OVER</h2>
+        
+        <div id="start-screen" class="screen-overlay">
+            <h1 class="game-title glitch">GRAVITY PULSE</h1>
+            <div class="instructions">
+                <h3>HOW TO PLAY</h3>
+                <div class="control-group">
+                    <p><span class="key">WASD</span> or <span class="key">ZQSD</span> or <span class="key">ARROWS</span> to Move</p>
+                    <p><span class="key">SPACE</span> to Dash (Attack)</p>
+                    <p><span class="key">ESC</span> to Pause</p>
+                </div>
+                <p class="objective">Dash through enemies to destroy them. Collect gold for points.</p>
+            </div>
+            <button id="start-btn" class="neon-btn">START GAME</button>
+        </div>
+
+        <div id="pause-screen" class="screen-overlay" style="display: none;">
+            <h2>PAUSED</h2>
+            <button id="resume-btn" class="neon-btn">RESUME</button>
+        </div>
+
+        <div id="game-over" class="screen-overlay" style="display: none;">
+            <h2 class="glitch">GAME OVER</h2>
             <p>Your Score: <span id="final-score">0</span></p>
-            <button id="restart-btn">PLAY AGAIN</button>
+            <button id="restart-btn" class="neon-btn">PLAY AGAIN</button>
         </div>
     </div>
     <script src="js/game.js"></script>

@@ -125,9 +125,10 @@ body::before {
     font-size: 20px;
 }
 
-/* Game Over Screen */
-#game-over {
+/* Screen Overlays */
+.screen-overlay {
     display: none;
+    /* Hidden by default, toggled by JS */
     position: absolute;
     top: 50%;
     left: 50%;
@@ -141,8 +142,72 @@ body::before {
         0 0 50px rgba(188, 19, 254, 0.3),
         inset 0 0 20px rgba(188, 19, 254, 0.1);
     backdrop-filter: blur(20px);
-    min-width: 300px;
+    min-width: 400px;
     z-index: 100;
+    flex-direction: column;
+    align-items: center;
+    gap: 20px;
+}
+
+/* Show flex when active */
+.screen-overlay.active {
+    display: flex;
+}
+
+/* Specific override for start screen to be visible initially if needed, 
+   but we will handle visibility via JS classes/style */
+#start-screen {
+    display: flex;
+}
+
+.game-title {
+    font-size: 64px;
+    margin: 0;
+    color: var(--neon-blue);
+    font-family: var(--font-display);
+    letter-spacing: 6px;
+    text-shadow: 0 0 20px var(--neon-blue);
+}
+
+.instructions {
+    margin: 20px 0;
+    text-align: left;
+    width: 100%;
+}
+
+.instructions h3 {
+    color: var(--neon-green);
+    border-bottom: 1px solid var(--glass-border);
+    padding-bottom: 10px;
+    margin-bottom: 15px;
+}
+
+.control-group p {
+    margin: 10px 0;
+    font-size: 16px;
+    color: #ddd;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.key {
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid var(--neon-blue);
+    padding: 2px 8px;
+    border-radius: 4px;
+    color: var(--neon-blue);
+    font-family: var(--font-display);
+    font-size: 12px;
+    box-shadow: 0 0 5px rgba(0, 243, 255, 0.2);
+}
+
+.objective {
+    margin-top: 20px;
+    font-style: italic;
+    color: #aaa;
+    font-size: 14px;
+    text-align: center;
 }
 
 #game-over h2 {
@@ -175,14 +240,14 @@ body::before {
 }
 
 /* Button Styling */
-#restart-btn {
+.neon-btn {
     background: transparent;
     border: 2px solid var(--neon-blue);
     color: var(--neon-blue);
     padding: 15px 40px;
     font-family: var(--font-display);
     font-size: 18px;
-    margin-top: 30px;
+    margin-top: 10px;
     cursor: pointer;
     border-radius: 5px;
     text-transform: uppercase;
@@ -193,7 +258,7 @@ body::before {
     box-shadow: 0 0 10px rgba(0, 243, 255, 0.1);
 }
 
-#restart-btn::before {
+.neon-btn::before {
     content: '';
     position: absolute;
     top: 0;
@@ -204,18 +269,18 @@ body::before {
     transition: 0.5s;
 }
 
-#restart-btn:hover {
+.neon-btn:hover {
     background: var(--neon-blue);
     color: #000;
     box-shadow: 0 0 30px var(--neon-blue);
     transform: scale(1.05);
 }
 
-#restart-btn:hover::before {
+.neon-btn:hover::before {
     left: 100%;
 }
 
-#restart-btn:active {
+.neon-btn:active {
     transform: scale(0.95);
 }
 
@@ -281,13 +346,18 @@ body::before {
         transform: skewX(0);
     }
 
-    #game-over {
+    .screen-overlay {
         width: 85%;
         padding: 30px;
+        min-width: auto;
     }
 
     #game-over h2 {
         font-size: 32px;
+    }
+
+    .game-title {
+        font-size: 40px;
     }
 }
 
