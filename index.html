@@ -1,12 +1,16 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Gravity Pulse</title>
     <link rel="stylesheet" href="css/styles.css">
-    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Roboto:wght@300;400;500&display=swap" rel="stylesheet">
+    <link
+        href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Roboto:wght@300;400;500&display=swap"
+        rel="stylesheet">
 </head>
+
 <body>
     <div id="game-container">
         <canvas id="game-canvas" width="800" height="600"></canvas>
@@ -24,18 +28,25 @@
                 <span id="health">100%</span>
             </div>
         </div>
-        
+
         <div id="start-screen" class="screen-overlay">
             <h1 class="game-title glitch">GRAVITY PULSE</h1>
             <div class="instructions">
-                <h3>HOW TO PLAY</h3>
+                <h3 class="title">HOW TO PLAY</h3>
+
                 <div class="control-group">
-                    <p><span class="key">WASD</span> or <span class="key">ZQSD</span> or <span class="key">ARROWS</span> to Move</p>
-                    <p><span class="key">SPACE</span> to Dash (Attack)</p>
-                    <p><span class="key">ESC</span> to Pause</p>
+                    <p><strong>Move:</strong> <span class="key">WASD</span> / <span class="key">ZQSD</span> / <span
+                            class="key">Arrows</span></p>
+                    <p><strong>Dash Attack:</strong> <span class="key">Space</span></p>
+                    <p><strong>Pause:</strong> <span class="key">ESC</span></p>
                 </div>
-                <p class="objective">Dash through enemies to destroy them. Collect gold for points.</p>
+
+                <p class="objective">
+                    <strong>Dash through enemies</strong> to destroy them and build combos.
+                    <br>Collect <strong>gold</strong> to boost your score and survive as long as possible!
+                </p>
             </div>
+
             <button id="start-btn" class="neon-btn">START GAME</button>
         </div>
 
@@ -52,4 +63,5 @@
     </div>
     <script src="js/game.js"></script>
 </body>
+
 </html>

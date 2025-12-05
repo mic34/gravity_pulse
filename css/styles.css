@@ -26,31 +26,7 @@ body {
     perspective: 1000px;
 }
 
-/* Background Grid Effect */
-body::before {
-    content: '';
-    position: absolute;
-    width: 200%;
-    height: 200%;
-    background:
-        linear-gradient(transparent 0%, rgba(0, 243, 255, 0.05) 2%, transparent 3%),
-        linear-gradient(90deg, transparent 0%, rgba(188, 19, 254, 0.05) 2%, transparent 3%);
-    background-size: 50px 50px;
-    animation: gridMove 20s linear infinite;
-    transform: rotateX(45deg) translateY(-20%);
-    z-index: -1;
-    pointer-events: none;
-}
-
-@keyframes gridMove {
-    0% {
-        transform: rotateX(45deg) translateY(0);
-    }
-
-    100% {
-        transform: rotateX(45deg) translateY(50px);
-    }
-}
+/* Background Grid Effect - REMOVED for performance/resize stability */
 
 /* Game Container */
 #game-container {
