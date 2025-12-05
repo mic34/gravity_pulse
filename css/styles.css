@@ -1,0 +1,306 @@
+/* Base Styles */
+:root {
+    --neon-blue: #00f3ff;
+    --neon-purple: #bc13fe;
+    --neon-green: #0aff0a;
+    --neon-red: #ff003c;
+    --bg-dark: #050510;
+    --glass-bg: rgba(255, 255, 255, 0.05);
+    --glass-border: rgba(255, 255, 255, 0.1);
+    --font-display: 'Orbitron', sans-serif;
+    --font-body: 'Roboto', sans-serif;
+}
+
+body {
+    margin: 0;
+    padding: 0;
+    background: radial-gradient(circle at center, #1a1a2e 0%, #000000 100%);
+    color: #fff;
+    font-family: var(--font-body);
+    overflow: hidden;
+    height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    perspective: 1000px;
+}
+
+/* Background Grid Effect */
+body::before {
+    content: '';
+    position: absolute;
+    width: 200%;
+    height: 200%;
+    background:
+        linear-gradient(transparent 0%, rgba(0, 243, 255, 0.05) 2%, transparent 3%),
+        linear-gradient(90deg, transparent 0%, rgba(188, 19, 254, 0.05) 2%, transparent 3%);
+    background-size: 50px 50px;
+    animation: gridMove 20s linear infinite;
+    transform: rotateX(45deg) translateY(-20%);
+    z-index: -1;
+    pointer-events: none;
+}
+
+@keyframes gridMove {
+    0% {
+        transform: rotateX(45deg) translateY(0);
+    }
+
+    100% {
+        transform: rotateX(45deg) translateY(50px);
+    }
+}
+
+/* Game Container */
+#game-container {
+    position: relative;
+    box-shadow:
+        0 0 20px rgba(0, 243, 255, 0.2),
+        0 0 60px rgba(188, 19, 254, 0.1),
+        inset 0 0 20px rgba(0, 0, 0, 0.5);
+    border-radius: 12px;
+    border: 1px solid var(--glass-border);
+    backdrop-filter: blur(10px);
+    padding: 5px;
+    background: rgba(0, 0, 0, 0.3);
+}
+
+/* Canvas Styling */
+#game-canvas {
+    display: block;
+    background: rgba(10, 10, 20, 0.9);
+    border: 2px solid rgba(0, 243, 255, 0.3);
+    border-radius: 8px;
+    box-shadow: inset 0 0 50px rgba(0, 0, 0, 0.8);
+}
+
+/* HUD Styling */
+#hud {
+    position: absolute;
+    top: 20px;
+    left: 25px;
+    font-family: var(--font-display);
+    font-size: 16px;
+    letter-spacing: 1px;
+    background: rgba(0, 0, 0, 0.6);
+    padding: 12px 25px;
+    border-radius: 30px;
+    border: 1px solid var(--glass-border);
+    backdrop-filter: blur(15px);
+    display: flex;
+    gap: 30px;
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.5);
+    transform: skewX(-10deg);
+}
+
+.hud-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    transform: skewX(10deg);
+    /* Counter-skew text */
+}
+
+.hud-item span:first-child {
+    color: rgba(255, 255, 255, 0.7);
+    font-size: 12px;
+    font-weight: 700;
+}
+
+#score {
+    color: var(--neon-blue);
+    text-shadow: 0 0 10px var(--neon-blue);
+    font-size: 20px;
+}
+
+#multiplier {
+    color: var(--neon-green);
+    text-shadow: 0 0 10px var(--neon-green);
+    font-size: 20px;
+}
+
+#health {
+    color: var(--neon-red);
+    text-shadow: 0 0 10px var(--neon-red);
+    font-size: 20px;
+}
+
+/* Game Over Screen */
+#game-over {
+    display: none;
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    text-align: center;
+    background: rgba(10, 10, 25, 0.95);
+    padding: 40px 60px;
+    border-radius: 20px;
+    border: 1px solid var(--neon-purple);
+    box-shadow:
+        0 0 50px rgba(188, 19, 254, 0.3),
+        inset 0 0 20px rgba(188, 19, 254, 0.1);
+    backdrop-filter: blur(20px);
+    min-width: 300px;
+    z-index: 100;
+}
+
+#game-over h2 {
+    margin: 0 0 20px 0;
+    color: var(--neon-red);
+    font-family: var(--font-display);
+    font-size: 48px;
+    text-transform: uppercase;
+    letter-spacing: 4px;
+    text-shadow:
+        0 0 10px var(--neon-red),
+        0 0 20px var(--neon-red);
+    animation: glitch 2s infinite;
+}
+
+#game-over p {
+    font-size: 18px;
+    margin: 15px 0;
+    color: #ccc;
+    font-family: var(--font-display);
+}
+
+#final-score {
+    color: var(--neon-blue);
+    font-weight: bold;
+    font-size: 36px;
+    text-shadow: 0 0 15px var(--neon-blue);
+    display: block;
+    margin-top: 10px;
+}
+
+/* Button Styling */
+#restart-btn {
+    background: transparent;
+    border: 2px solid var(--neon-blue);
+    color: var(--neon-blue);
+    padding: 15px 40px;
+    font-family: var(--font-display);
+    font-size: 18px;
+    margin-top: 30px;
+    cursor: pointer;
+    border-radius: 5px;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    position: relative;
+    overflow: hidden;
+    box-shadow: 0 0 10px rgba(0, 243, 255, 0.1);
+}
+
+#restart-btn::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(0, 243, 255, 0.2), transparent);
+    transition: 0.5s;
+}
+
+#restart-btn:hover {
+    background: var(--neon-blue);
+    color: #000;
+    box-shadow: 0 0 30px var(--neon-blue);
+    transform: scale(1.05);
+}
+
+#restart-btn:hover::before {
+    left: 100%;
+}
+
+#restart-btn:active {
+    transform: scale(0.95);
+}
+
+/* Animations */
+@keyframes pulse {
+    0% {
+        transform: translate(-50%, -50%) scale(1);
+    }
+
+    50% {
+        transform: translate(-50%, -50%) scale(1.02);
+    }
+
+    100% {
+        transform: translate(-50%, -50%) scale(1);
+    }
+}
+
+.pulse {
+    animation: pulse 2s ease-in-out infinite;
+}
+
+@keyframes glitch {
+    0% {
+        text-shadow: 2px 2px var(--neon-blue), -2px -2px var(--neon-red);
+    }
+
+    25% {
+        text-shadow: -2px 2px var(--neon-blue), 2px -2px var(--neon-red);
+    }
+
+    50% {
+        text-shadow: 2px -2px var(--neon-blue), -2px 2px var(--neon-red);
+    }
+
+    75% {
+        text-shadow: -2px -2px var(--neon-blue), 2px 2px var(--neon-red);
+    }
+
+    100% {
+        text-shadow: 2px 2px var(--neon-blue), -2px -2px var(--neon-red);
+    }
+}
+
+/* Responsive Design */
+@media (max-width: 850px) {
+    #game-canvas {
+        width: 100%;
+        height: auto;
+        max-width: 100vw;
+    }
+
+    #hud {
+        width: 90%;
+        left: 50%;
+        transform: translateX(-50%) skewX(0);
+        justify-content: center;
+        top: 10px;
+        padding: 8px 15px;
+    }
+
+    .hud-item {
+        transform: skewX(0);
+    }
+
+    #game-over {
+        width: 85%;
+        padding: 30px;
+    }
+
+    #game-over h2 {
+        font-size: 32px;
+    }
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+    width: 6px;
+}
+
+::-webkit-scrollbar-track {
+    background: #000;
+}
+
+::-webkit-scrollbar-thumb {
+    background: var(--neon-purple);
+    border-radius: 3px;
+}

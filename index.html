@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gravity Pulse</title>
+    <link rel="stylesheet" href="css/styles.css">
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Roboto:wght@300;400;500&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div id="game-container">
+        <canvas id="game-canvas" width="800" height="600"></canvas>
+        <div id="hud">
+            <div class="hud-item">
+                <span>SCORE:</span>
+                <span id="score">0</span>
+            </div>
+            <div class="hud-item">
+                <span>MULTIPLIER:</span>
+                <span id="multiplier">1x</span>
+            </div>
+            <div class="hud-item">
+                <span>HEALTH:</span>
+                <span id="health">100%</span>
+            </div>
+        </div>
+        <div id="game-over" class="pulse">
+            <h2>GAME OVER</h2>
+            <p>Your Score: <span id="final-score">0</span></p>
+            <button id="restart-btn">PLAY AGAIN</button>
+        </div>
+    </div>
+    <script src="js/game.js"></script>
+</body>
+</html>
