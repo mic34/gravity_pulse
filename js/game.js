@@ -123,7 +123,7 @@ function init() {
 
     // Event listeners
     window.addEventListener('keydown', handleKeyDown);
-    window.addEventListener('keyup', e => keys[e.key] = false);
+    window.addEventListener('keyup', e => keys[e.code] = false);
 
     document.getElementById('start-btn').addEventListener('click', startGame);
     document.getElementById('resume-btn').addEventListener('click', togglePause);
@@ -151,10 +151,10 @@ function handleResize() {
 }
 
 function handleKeyDown(e) {
-    keys[e.key] = true;
+    keys[e.code] = true;
 
     // Pause toggle
-    if (e.key === 'Escape') {
+    if (e.code === 'Escape') {
         if (gameState === 'playing' || gameState === 'paused') {
             togglePause();
         }
@@ -197,9 +197,11 @@ function resetGame() {
     player = {
         x: centerX,
         y: centerY,
-        dx: 0,
-        dy: 0,
-        speed: 3,
+        vx: 0,
+        vy: 0,
+        acceleration: 0.8, // How fast we speed up
+        friction: 0.92,    // How fast we slow down (lower = more slippery)
+        maxSpeed: 6,
         radius: PLAYER_RADIUS,
         isDashing: false
     };
@@ -240,8 +242,12 @@ function gameLoop(timestamp) {
 
     if (!lastTime) lastTime = timestamp;
 
-    const deltaTime = timestamp - lastTime;
+    let deltaTime = timestamp - lastTime;
     lastTime = timestamp;
+
+    // Cap deltaTime to prevent physics explosions on lag spikes
+    if (deltaTime > 50) deltaTime = 50;
+
     gameTime = gameTime || 0;
     gameTime += deltaTime;
 
@@ -286,24 +292,43 @@ function update(deltaTime) {
 // Update player position and state
 function updatePlayer(timeScale) {
     // Handle movement (WASD + ZQSD + Arrows)
-    const left = keys['ArrowLeft'] || keys['a'] || keys['q'];
-    const right = keys['ArrowRight'] || keys['d'];
-    const up = keys['ArrowUp'] || keys['w'] || keys['z'];
-    const down = keys['ArrowDown'] || keys['s'];
+    const left = keys['ArrowLeft'] || keys['KeyA'] || keys['KeyQ'];
+    const right = keys['ArrowRight'] || keys['KeyD'];
+    const up = keys['ArrowUp'] || keys['KeyW'] || keys['KeyZ'];
+    const down = keys['ArrowDown'] || keys['KeyS'];
 
-    const moveX = (right ? 1 : 0) - (left ? 1 : 0);
-    const moveY = (down ? 1 : 0) - (up ? 1 : 0);
+    // Calculate target direction
+    const inputX = (right ? 1 : 0) - (left ? 1 : 0);
+    const inputY = (down ? 1 : 0) - (up ? 1 : 0);
 
-    // Normalize diagonal movement
-    const len = Math.sqrt(moveX * moveX + moveY * moveY);
-    const dirX = len > 0 ? moveX / len : 0;
-    const dirY = len > 0 ? moveY / len : 0;
+    // Normalize input
+    let dirX = inputX;
+    let dirY = inputY;
+    const len = Math.sqrt(inputX * inputX + inputY * inputY);
+    if (len > 0) {
+        dirX /= len;
+        dirY /= len;
+    }
 
-    // Apply movement
-    player.dx = dirX * player.speed;
-    player.dy = dirY * player.speed;
+    // Apply acceleration
+    if (len > 0) {
+        player.vx += dirX * player.acceleration * timeScale;
+        player.vy += dirY * player.acceleration * timeScale;
+    }
 
-    // Apply center attraction
+    // Apply friction
+    player.vx *= Math.pow(player.friction, timeScale);
+    player.vy *= Math.pow(player.friction, timeScale);
+
+    // Cap speed (soft cap to allow dashing to exceed it temporarily)
+    const currentSpeed = Math.sqrt(player.vx * player.vx + player.vy * player.vy);
+    if (currentSpeed > player.maxSpeed && !player.isDashing) {
+        const scale = player.maxSpeed / currentSpeed;
+        player.vx *= scale;
+        player.vy *= scale;
+    }
+
+    // Apply center attraction (gravity)
     const toCenterX = centerX - player.x;
     const toCenterY = centerY - player.y;
     const distToCenter = Math.sqrt(toCenterX * toCenterX + toCenterY * toCenterY);
@@ -313,8 +338,8 @@ function updatePlayer(timeScale) {
         const centerDirY = toCenterY / distToCenter;
         const attraction = CENTER_ATTRACTION * (1 + distToCenter / arenaRadius);
 
-        player.dx += centerDirX * attraction;
-        player.dy += centerDirY * attraction;
+        player.vx += centerDirX * attraction * timeScale;
+        player.vy += centerDirY * attraction * timeScale;
     }
 
     // Handle dash
@@ -322,24 +347,27 @@ function updatePlayer(timeScale) {
     const isDashing = now < dashEndTime;
     const canDash = now - lastDashTime > DASH_COOLDOWN;
 
-    if (keys[' '] && canDash && !isDashing) {
+    if (keys['Space'] && canDash && !isDashing) {
         dashEndTime = now + DASH_DURATION;
         lastDashTime = now;
         player.isDashing = true;
         SoundManager.playDash();
 
-        // Dash toward center
-        if (distToCenter > 0) {
-            player.dx += (toCenterX / distToCenter) * DASH_SPEED;
-            player.dy += (toCenterY / distToCenter) * DASH_SPEED;
+        // Dash in movement direction, or towards center if not moving
+        if (len > 0) {
+            player.vx += dirX * DASH_SPEED;
+            player.vy += dirY * DASH_SPEED;
+        } else if (distToCenter > 0) {
+            player.vx += (toCenterX / distToCenter) * DASH_SPEED;
+            player.vy += (toCenterY / distToCenter) * DASH_SPEED;
         }
     } else if (now >= dashEndTime) {
         player.isDashing = false;
     }
 
-    // Update position with timeScale
-    player.x += player.dx * timeScale;
-    player.y += player.dy * timeScale;
+    // Update position
+    player.x += player.vx * timeScale;
+    player.y += player.vy * timeScale;
 
     // Keep player in bounds
     const distFromCenter = Math.sqrt((player.x - centerX) ** 2 + (player.y - centerY) ** 2);
@@ -347,6 +375,19 @@ function updatePlayer(timeScale) {
         const angle = Math.atan2(player.y - centerY, player.x - centerX);
         player.x = centerX + Math.cos(angle) * (arenaRadius - player.radius);
         player.y = centerY + Math.sin(angle) * (arenaRadius - player.radius);
+
+        // Bounce off walls slightly
+        const normalX = Math.cos(angle);
+        const normalY = Math.sin(angle);
+
+        // Reflect velocity vector
+        const dot = player.vx * normalX + player.vy * normalY;
+        player.vx -= 2 * dot * normalX;
+        player.vy -= 2 * dot * normalY;
+
+        // Dampen bounce
+        player.vx *= 0.5;
+        player.vy *= 0.5;
     }
 }
 
