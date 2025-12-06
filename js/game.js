@@ -102,6 +102,7 @@ let rewards = [];
 let particles = [];
 let score = 0, multiplier = 1, health = 100, lastTime, gameTime = 0, lastEnemySpawn = 0, dashEndTime = 0, lastDashTime = 0, gameLoopId;
 let keys = {};
+let mouse = { x: 0, y: 0, isDown: false };
 let centerX, centerY;
 let arenaRadius;
 
@@ -125,9 +126,27 @@ function init() {
     window.addEventListener('keydown', handleKeyDown);
     window.addEventListener('keyup', e => keys[e.code] = false);
 
+    // Mouse/Touch listeners
+    canvas.addEventListener('mousedown', handleMouseDown);
+    canvas.addEventListener('mouseup', handleMouseUp);
+    canvas.addEventListener('mousemove', handleMouseMove);
+
+    canvas.addEventListener('touchstart', handleTouchStart, { passive: false });
+    canvas.addEventListener('touchend', handleTouchEnd, { passive: false });
+    canvas.addEventListener('touchmove', handleTouchMove, { passive: false });
+
     document.getElementById('start-btn').addEventListener('click', startGame);
     document.getElementById('resume-btn').addEventListener('click', togglePause);
     document.getElementById('restart-btn').addEventListener('click', resetGame);
+
+    // On-Screen Controls
+    document.getElementById('pause-btn-hud').addEventListener('click', togglePause);
+
+    const dashBtn = document.getElementById('dash-btn-hud');
+    dashBtn.addEventListener('mousedown', () => keys['Space'] = true);
+    dashBtn.addEventListener('mouseup', () => keys['Space'] = false);
+    dashBtn.addEventListener('touchstart', (e) => { e.preventDefault(); keys['Space'] = true; });
+    dashBtn.addEventListener('touchend', (e) => { e.preventDefault(); keys['Space'] = false; });
 
     // Initial render
     renderBackground();
@@ -158,6 +177,42 @@ function handleKeyDown(e) {
         if (gameState === 'playing' || gameState === 'paused') {
             togglePause();
         }
+    }
+}
+
+// Mouse/Touch Handlers
+function handleMouseDown(e) {
+    mouse.isDown = true;
+    mouse.x = e.clientX;
+    mouse.y = e.clientY;
+}
+
+function handleMouseUp(e) {
+    mouse.isDown = false;
+}
+
+function handleMouseMove(e) {
+    mouse.x = e.clientX;
+    mouse.y = e.clientY;
+}
+
+function handleTouchStart(e) {
+    e.preventDefault(); // Prevent scrolling
+    mouse.isDown = true;
+    mouse.x = e.touches[0].clientX;
+    mouse.y = e.touches[0].clientY;
+}
+
+function handleTouchEnd(e) {
+    e.preventDefault();
+    mouse.isDown = false;
+}
+
+function handleTouchMove(e) {
+    e.preventDefault(); // Prevent scrolling
+    if (e.touches.length > 0) {
+        mouse.x = e.touches[0].clientX;
+        mouse.y = e.touches[0].clientY;
     }
 }
 
@@ -205,6 +260,9 @@ function resetGame() {
         radius: PLAYER_RADIUS,
         isDashing: false
     };
+
+    // Reset mouse state
+    mouse = { x: 0, y: 0, isDown: false };
 
     // Reset game state
     enemies = [];
@@ -297,15 +355,32 @@ function updatePlayer(timeScale) {
     const up = keys['ArrowUp'] || keys['KeyW'] || keys['KeyZ'];
     const down = keys['ArrowDown'] || keys['KeyS'];
 
-    // Calculate target direction
-    const inputX = (right ? 1 : 0) - (left ? 1 : 0);
-    const inputY = (down ? 1 : 0) - (up ? 1 : 0);
+    // Calculate target direction from keys
+    let inputX = (right ? 1 : 0) - (left ? 1 : 0);
+    let inputY = (down ? 1 : 0) - (up ? 1 : 0);
+
+    // Mouse/Touch override
+    if (mouse.isDown) {
+        const dx = mouse.x - player.x;
+        const dy = mouse.y - player.y;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+
+        if (dist > 10) { // Deadzone to prevent jittering at cursor
+            inputX = dx / dist;
+            inputY = dy / dist;
+        } else {
+            inputX = 0;
+            inputY = 0;
+        }
+    }
 
     // Normalize input
     let dirX = inputX;
     let dirY = inputY;
     const len = Math.sqrt(inputX * inputX + inputY * inputY);
-    if (len > 0) {
+
+    // Normalize if length > 1 (to prevent faster diagonal movement with keys)
+    if (len > 1) {
         dirX /= len;
         dirY /= len;
     }
